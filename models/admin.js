@@ -11,6 +11,9 @@ const adminSchema = new mongoose.Schema({
   mobileNo: {
     type: Number,
   },
+  password: {
+    type: String,
+  },
 });
 
 module.exports = mongoose.model("admin", adminSchema);

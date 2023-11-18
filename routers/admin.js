@@ -1,10 +1,8 @@
 const express = require("express");
+const admin_controller = require("../controllers/admin");
 
 const router = express.Router();
 
-router.get("/", (req, res) => {
-  console.log("getting the into admin router");
-  return res.send("amdin router");
-});
+router.post("/register", admin_controller.register);
 
 module.exports = router;

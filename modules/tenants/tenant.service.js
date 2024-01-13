@@ -1,4 +1,4 @@
-const tenantModel = require("../models/tenants.model");
+const tenantModel = require("./tenant.model");
 module.exports.doCreateTenant = async (body) => {
   const tenant = await tenantModel.create(body);
 

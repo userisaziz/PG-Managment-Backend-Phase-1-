@@ -1,4 +1,4 @@
-const admin_services = require("../services/admin");
+const admin_services = require("./admin.service");
 
 exports.register = async (req, res) => {
   //   const { mobileNo, email, name ,password} = req.body;

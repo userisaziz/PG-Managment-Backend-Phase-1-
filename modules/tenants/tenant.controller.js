@@ -1,4 +1,4 @@
-const tenant_services = require("../services/tenant.services");
+const tenant_services = require("./tenant.service");
 module.exports.createTenant = async (req, res) => {
   try {
     const result = await tenant_services.doCreateTenant(req.body);

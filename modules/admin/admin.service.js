@@ -1,5 +1,5 @@
-const adminModel = require("../models/admin");
-const { Response } = require("../helper/response");
+const adminModel = require("./admin.model");
+const { Response } = require("../../helper/response");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 

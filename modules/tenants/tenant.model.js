@@ -27,6 +27,9 @@ const tenantSchema = new mongoose.Schema({
     type: String,
     enum: ["Student", "Employed", "Guest"],
   },
+  hostelId: {
+    type: mongoose.Schema.Types.ObjectId,
+  },
   roomId: {
     type: mongoose.Schema.Types.ObjectId,
   },

@@ -25,9 +25,9 @@ module.exports.getAllRoom = async (req, res, next) => {
     if(error){
       throw new BadRequest(`error in getting all room validator ${error.details[0].message}`)
     }
-    const {type,floor,feeType=""} = req.query
+    const {type,floor} = req.query
     if(!type && !floor){
-      throw new BadRequest('Atleast provide type,floor and feeType in query')
+      throw new BadRequest('Atleast provide type and floor in query')
     }
     const query = {
       ...(type ? { roomType: type } : {}),

@@ -12,7 +12,22 @@ module.exports.createTenant = async (req, res, next) => {
       success: true,
       status: result.status,
       message: result.message,
-      data: result,
+      data: result.data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports.getAllTenant = async (req, res, next) => {
+  try {
+   
+    const result = await tenant_services.doGetAllTenant();
+    return res.json({
+      success: true,
+      status: result.status,
+      message: result.message,
+      data: result.data,
     });
   } catch (error) {
     next(error);

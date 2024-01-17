@@ -27,7 +27,7 @@ module.exports.getHostel = async (req, res, next) => {
       success: true,
       status: result.status,
       message: result.message,
-      data: result,
+      data: result.data,
     });
   } catch (error) {
     next(error);
@@ -40,7 +40,7 @@ module.exports.getAllHostel = async (req, res, next) => {
       success: true,
       status: result.status,
       message: result.message,
-      data: result,
+      data: result.data,
     });
   } catch (error) {
     next(error);

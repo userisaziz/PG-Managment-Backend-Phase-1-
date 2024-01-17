@@ -33,6 +33,8 @@ const hostelSchema = new mongoose.Schema({
   address: {
     type: addressSchema,
   },
+},{
+  timestamps:true
 });
 
 module.exports = mongoose.model("Hostel", hostelSchema);

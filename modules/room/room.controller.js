@@ -12,7 +12,7 @@ module.exports.createRoom = async (req, res, next) => {
       success: true,
       status: result.status,
       message: result.message,
-      data: result,
+      data: result.data,
     });
   } catch (error) {
     next(error);
@@ -38,7 +38,7 @@ module.exports.getAllRoom = async (req, res, next) => {
       success: true,
       status: result.status,
       message: result.message,
-      data: result,
+      data: result.data,
     });
   } catch (error) {
     next(error);

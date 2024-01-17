@@ -38,7 +38,11 @@ const roomSchema = new mongoose.Schema({
   totalBeds:{
     type:Number
   }
-});
+},
+{
+  timestamps:true
+}
+);
 
 const room = mongoose.model("Room", roomSchema);
 

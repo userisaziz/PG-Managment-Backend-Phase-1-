@@ -52,6 +52,10 @@ const tenantSchema = new mongoose.Schema({
     type: String,
     enum: ["daily", "monthly"],
   },
-});
+},
+{
+  timestamps:true
+}
+);
 
 module.exports = mongoose.model("Tenant", tenantSchema);

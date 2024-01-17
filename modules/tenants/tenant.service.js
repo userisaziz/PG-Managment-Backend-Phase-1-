@@ -22,3 +22,15 @@ module.exports.doCreateTenant = async (body) => {
     throw error;
   }
 };
+module.exports.doGetAllTenant = async () => {
+  try {
+    const tenant = await tenantModel.find();
+    return {
+      status: 200,
+      message: "tenant created successfully",
+      data: tenant,
+    };
+  } catch (error) {
+    throw error;
+  }
+};

@@ -1,6 +1,9 @@
 const mongoose = require("mongoose");
 
 const roomSchema = new mongoose.Schema({
+  roomNo:{
+    type:Number
+  },
   imageUrl: {
     type: String,
   },
@@ -14,13 +17,14 @@ const roomSchema = new mongoose.Schema({
     ],
   },
   floor: {
-    type: String,
+    type: Number,
   },
   hostelId: {
     type: mongoose.Schema.Types.ObjectId,
   },
   isEmpty: {
     type: Boolean,
+    default:true
   },
   feeMonth: {
     type: Number,
@@ -31,6 +35,9 @@ const roomSchema = new mongoose.Schema({
   bedRemaining: {
     type: Number,
   },
+  totalBeds:{
+    type:Number
+  }
 });
 
 const room = mongoose.model("Room", roomSchema);

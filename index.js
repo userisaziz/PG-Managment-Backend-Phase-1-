@@ -2,20 +2,20 @@ const express = require("express");
 const { connectDb } = require("./config/database");
 const routers = require("./routing");
 const { NotFound, BadRequest } = require("./utils/errorHandling");
-
+const morgan = require('morgan')
 const app = express();
 require("dotenv").config();
 
 app.use(express.json());
-
+app.use(morgan(":method :url :response-time ms"))
 const PORT = process.env.PORT || 3011;
 
 connectDb();
 
 app.use("/api/v1", routers);
-app.get("/", (req, res) => {
-  res.send("pg-management");
-});
+app.all('*', function(req, res) {
+  throw new BadRequest(`Route Does not exists ${req.url}`)
+})
 // Error-handling middleware
 app.use((err, req, res, next) => {
   console.error(err);

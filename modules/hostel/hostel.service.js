@@ -13,10 +13,9 @@ module.exports.doCreateHostel = async (body) => {
     throw error;
   }
 };
-module.exports.doGetHostel = async (id) => {
+module.exports.doGetAllHostel = async () => {
   try {
-    const hostel = await hostelModel.findById(id);
-    // console.log(hostel.data);
+    const hostel = await hostelModel.find();
     if (!hostel) throw new NotFound("hostel not found");
     return { status: 200, message: "Hostel fetch successfully", data: hostel };
   } catch (error) {

@@ -20,7 +20,7 @@ const tenantSchema = new mongoose.Schema({
   email: {
     type: String,
   },
-  contact: {
+  mobileNo: {
     type: Number,
   },
   type: {

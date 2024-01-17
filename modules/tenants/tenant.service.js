@@ -27,7 +27,19 @@ module.exports.doGetAllTenant = async () => {
     const tenant = await tenantModel.find();
     return {
       status: 200,
-      message: "tenant created successfully",
+      message: "tenant fetched successfully",
+      data: tenant,
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+module.exports.doGetTenant = async (id) => {
+  try {
+    const tenant = await tenantModel.findById(id);
+    return {
+      status: 200,
+      message: "tenant fetched successfully",
       data: tenant,
     };
   } catch (error) {

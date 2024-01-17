@@ -21,3 +21,7 @@ exports.createTenantValidator = Joi.object({
     rentType: Joi.string().valid('daily', 'monthly').required()
 });
 
+exports.paramsIdValidator = Joi.object({
+    id:Joi.string().hex().length(24).required()
+})
+

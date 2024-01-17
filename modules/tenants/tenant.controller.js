@@ -33,3 +33,20 @@ module.exports.getAllTenant = async (req, res, next) => {
     next(error);
   }
 };
+module.exports.getTenant = async (req, res, next) => {
+  try {
+    const {error} = validator.paramsIdValidator.validate(req.params)
+    if(error){
+      throw new BadRequest(`validation failed ${error.details[0].message}`)
+    }
+    const result = await tenant_services.doGetTenant(req.params.id);
+    return res.json({
+      success: true,
+      status: result.status,
+      message: result.message,
+      data: result.data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

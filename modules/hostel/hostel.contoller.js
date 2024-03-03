@@ -3,10 +3,11 @@ const _services = require("./hostel.service");
 const validator = require("./hostel.validator");
 module.exports.createHostel = async (req, res, next) => {
   try {
-    const {error} = validator.hostelValidator.validate(req.body)
-    if(error){
-      console.log("error from validation",error.details[0].message)
-      throw new BadRequest(`validation error while hostel creation ${error.details[0].message}`)
+    const { error } = validator.hostelValidator.validate(req.body);
+    if (error) {
+      throw new BadRequest(
+        `validation error while hostel creation ${error.details[0].message}`
+      );
     }
     const result = await _services.doCreateHostel(req.body);
     return res.json({

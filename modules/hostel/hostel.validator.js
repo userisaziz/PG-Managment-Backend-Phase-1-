@@ -1,18 +1,14 @@
-const Joi = require('joi');
+// hostel.validator.js
 
-const addressValidator = Joi.object({
-    state: Joi.string(),
-    district: Joi.string(),
-    pincode: Joi.number(),
+const Joi = require("joi");
+
+// Define Joi schema for hostel creation
+exports.createHostelValidator = Joi.object({
+  name: Joi.string().required(),
+  address: Joi.object({
+    state: Joi.string().required(),
+    district: Joi.string().required(),
+    pincode: Joi.number().required(),
+  }),
+  floors: Joi.array().items(Joi.number().integer().min(1)),
 });
-
-module.exports.hostelValidator = Joi.object({
-    name: Joi.string().required(),
-    adminId: Joi.string().hex().length(24).required(), 
-    imageUrl: Joi.string(),
-    contactNumber: Joi.number(),
-    pgType: Joi.string().valid('Gents', 'Ladies'),
-    address: addressValidator,
-});
-
-// module.exports = hostelValidator;

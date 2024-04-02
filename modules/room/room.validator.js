@@ -1,21 +1,40 @@
-const Joi = require('joi');
+const Joi = require("joi");
 
-module.exports.createRoomValidator = Joi.object({
-    roomNo:Joi.number().required(),
-    imageUrl: Joi.string(),
-    roomType: Joi.string().valid('single-sharing', 'double-sharing', 'triple-sharing', 'four-sharing').required(),
-    floor: Joi.number().required(),
-    hostelId: Joi.string().hex().length(24).required(), 
-    isEmpty: Joi.boolean(),
-    feeMonth: Joi.number().required(),
-    feePerDay: Joi.number().required(),
-    bedRemaining: Joi.number(),
-    totalBeds:Joi.number().required()
+const createRoomValidator = Joi.object({
+  roomNo: Joi.number().required(),
+  imageUrl: Joi.string().required(),
+  roomId: Joi.string().required(),
+  roomTypeId: Joi.string().required(),
+  floor: Joi.number().required(),
+  hostelId: Joi.string().required(),
+  isEmpty: Joi.boolean().required(),
+  feeMonth: Joi.number().required(),
+  feePerDay: Joi.number().required(),
+  maxOccupancy: Joi.number(),
+  currentOccupancy: Joi.number(),
 });
 
-module.exports.getAllRoomValidator = Joi.object({
-    type:Joi.string().valid('single-sharing', 'double-sharing', 'triple-sharing', 'four-sharing'),
-    floor:Joi.number(),
-    // feeType:Joi.string().valid('daily,monthly')
-})
+const updateRoomValidator = Joi.object({
+  roomId: Joi.string().required(),
+  roomNo: Joi.number().required(),
+  imageUrl: Joi.string(),
+  roomType: Joi.string().required(),
+  floor: Joi.number().required(),
+  hostelId: Joi.string().required(),
+  isEmpty: Joi.boolean(),
+  feeMonth: Joi.number(),
+  feePerDay: Joi.number(),
+});
 
+const bookRoomValidator = Joi.object({
+  roomId: Joi.string().required(),
+  tenantId: Joi.string().required(),
+  checkInDate: Joi.date().required(),
+  checkOutDate: Joi.date().min(Joi.ref("checkInDate")).required(),
+});
+
+module.exports = {
+  createRoomValidator,
+  updateRoomValidator,
+  bookRoomValidator,
+};

@@ -1,49 +1,65 @@
 const mongoose = require("mongoose");
 
-const roomSchema = new mongoose.Schema({
-  roomNo:{
-    type:Number
-  },
-  imageUrl: {
-    type: String,
-  },
-  roomType: {
-    type: String,
-    enum: [
-      "single-sharing",
-      "double-sharing",
-      "triple-sharing",
-      "four-sharing",
-    ],
-  },
-  floor: {
-    type: Number,
-  },
-  hostelId: {
+const bookingSchema = new mongoose.Schema({
+  tenantId: {
     type: mongoose.Schema.Types.ObjectId,
+    ref: "Tenant",
+    required: true,
   },
-  isEmpty: {
-    type: Boolean,
-    default:true
+  checkInDate: {
+    type: Date,
+    required: true,
   },
-  feeMonth: {
-    type: Number,
+  checkOutDate: {
+    type: Date,
+    required: true,
   },
-  feePerDay: {
-    type: Number,
+});
+
+const roomSchema = new mongoose.Schema(
+  {
+    roomNo: {
+      type: Number,
+      required: true,
+    },
+    imageUrl: {
+      type: String,
+      required: true,
+    },
+    roomId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "RoomType",
+      required: true,
+    },
+    floor: {
+      type: Number,
+      required: true,
+    },
+    hostelId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Hostel",
+      required: true,
+    },
+    isEmpty: {
+      type: Boolean,
+      required: true,
+    },
+    feeMonth: {
+      type: Number,
+      required: true,
+    },
+    feePerDay: Number,
+    maxOccupancy: {
+      type: Number,
+      required: true,
+    },
+    currentOccupancy: {
+      type: Number,
+      default: 0,
+    },
+    bookings: [bookingSchema],
   },
-  bedRemaining: {
-    type: Number,
-  },
-  totalBeds:{
-    type:Number
-  }
-},
-{
-  timestamps:true
-}
+  { timestamps: true }
 );
 
-const room = mongoose.model("Room", roomSchema);
-
-module.exports = room;
+module.exports = mongoose.model("Room", roomSchema);

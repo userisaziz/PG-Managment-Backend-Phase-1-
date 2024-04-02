@@ -1,40 +1,27 @@
+// hostel.model.js
+
 const mongoose = require("mongoose");
 
 const addressSchema = new mongoose.Schema({
-  state: {
-    type: String,
-  },
-  district: {
-    type: String,
-  },
-  pincode: {
-    type: Number,
-  },
+  state: String,
+  district: String,
+  pincode: Number,
 });
 
-const hostelSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
+const hostelSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    address: addressSchema,
+    floors: [Number], // Array to store floor numbers
+    pgType: {
+      type: String,
+      enum: ["Male", "Female", "Co-living"],
+    },
   },
-  adminId: {
-    type: mongoose.Schema.Types.ObjectId,
-  },
-  imageUrl: {
-    type: String,
-  },
-  contactNumber: {
-    type: Number,
-  },
-  pgType: {
-    type: String,
-    enum: ["Gents", "Ladies"],
-  },
-  address: {
-    type: addressSchema,
-  },
-},{
-  timestamps:true
-});
+  { timestamps: true }
+);
 
 module.exports = mongoose.model("Hostel", hostelSchema);

@@ -1,47 +1,48 @@
-const roomModel = require("../room/room.model");
-const tenantModel = require("./tenant.model");
-module.exports.doCreateTenant = async (body) => {
+const Tenant = require("./tenant.model");
+
+exports.createTenant = async (tenantData) => {
   try {
-    const tenant = await tenantModel.create(body);
-    await roomModel.findByIdAndUpdate(
-      body.roomId,
-      {
-        $inc: { bedRemaining: -1 },
-        $set: { isEmpty: { $cond: [{ $eq: ['$bedRemaining', 0] }, false, true] } },
-      },
-      { new: true }
-    );
-    
- 
-    return {
-      status: 200,
-      message: "tenant created successfully",
-      data: tenant,
-    };
+    const newTenant = new Tenant(tenantData);
+    const savedTenant = await newTenant.save();
+    return savedTenant;
   } catch (error) {
     throw error;
   }
 };
-module.exports.doGetAllTenant = async () => {
+
+exports.getAllTenants = async () => {
   try {
-    const tenant = await tenantModel.find();
-    return {
-      status: 200,
-      message: "tenant fetched successfully",
-      data: tenant,
-    };
+    const tenants = await Tenant.find();
+    return tenants;
   } catch (error) {
     throw error;
   }
 };
-module.exports.doGetTenant = async (id) => {
+
+exports.getTenantById = async (id) => {
   try {
-    const tenant = await tenantModel.findById(id);
-    return {
-      status: 200,
-      message: "tenant fetched successfully",
-      data: tenant,
-    };
+    const tenant = await Tenant.findById(id);
+    return tenant;
+  } catch (error) {
+    throw error;
+  }
+};
+
+exports.updateTenant = async (id, newData) => {
+  try {
+    const updatedTenant = await Tenant.findByIdAndUpdate(id, newData, {
+      new: true,
+    });
+    return updatedTenant;
+  } catch (error) {
+    throw error;
+  }
+};
+
+exports.deleteTenant = async (id) => {
+  try {
+    const deletedTenant = await Tenant.findByIdAndDelete(id);
+    return deletedTenant;
   } catch (error) {
     throw error;
   }

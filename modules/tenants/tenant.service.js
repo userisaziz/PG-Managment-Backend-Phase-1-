@@ -1,19 +1,28 @@
 const Tenant = require("./tenant.model");
 
-exports.createTenant = async (tenantData) => {
+async function createTenant(data) {
   try {
-    const newTenant = new Tenant(tenantData);
-    const savedTenant = await newTenant.save();
-    return savedTenant;
+    const tenant = await Tenant.create(data);
+    return {
+      status: 200,
+      message: "Tenant added successfully",
+      data: tenant,
+    };
   } catch (error) {
     throw error;
   }
-};
+}
+
+exports.createTenant = createTenant;
 
 exports.getAllTenants = async () => {
   try {
-    const tenants = await Tenant.find();
-    return tenants;
+    const tenant = await Tenant.find();
+    return {
+      status: 200,
+      message: "Tenants found successfully",
+      data: tenant,
+    };
   } catch (error) {
     throw error;
   }

@@ -3,9 +3,8 @@ const Joi = require("joi");
 const createRoomValidator = Joi.object({
   roomNo: Joi.number().required(),
   imageUrl: Joi.string().required(),
-  roomId: Joi.string().required(),
-  roomTypeId: Joi.string().required(),
-  floor: Joi.number().required(),
+  // roomTypeId: Joi.string().required(),
+  floorId: Joi.string().required(),
   hostelId: Joi.string().required(),
   isEmpty: Joi.boolean().required(),
   feeMonth: Joi.number().required(),

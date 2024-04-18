@@ -1,42 +1,34 @@
-const { body } = require("express-validator");
+const Joi = require("joi");
 
-exports.validateCreateTenant = () => {
-  return [
-    body("name").notEmpty().withMessage("Name is required"),
-    body("email").isEmail().withMessage("Valid email is required"),
-    body("mobileNo").isNumeric().withMessage("Mobile number must be numeric"),
-    body("type")
-      .isIn(["Student", "Working Professional"])
-      .withMessage("Invalid tenant type"),
-    body("hostelId").notEmpty().withMessage("Hostel ID is required"),
-    body("roomId").notEmpty().withMessage("Room ID is required"),
-    body("emergencyContactNumber")
-      .isNumeric()
-      .withMessage("Emergency contact number must be numeric"),
-    body("adhaarNumber")
-      .isLength({ min: 12, max: 12 })
-      .withMessage("Adhaar number must be 12 characters long"),
-    body("permanentAddress.state")
-      .notEmpty()
-      .withMessage("Permanent address state is required"),
-    body("permanentAddress.district")
-      .notEmpty()
-      .withMessage("Permanent address district is required"),
-    body("permanentAddress.pincode")
-      .isNumeric()
-      .withMessage("Permanent address pincode must be numeric"),
-    body("temporaryAddress.state")
-      .notEmpty()
-      .withMessage("Temporary address state is required"),
-    body("temporaryAddress.district")
-      .notEmpty()
-      .withMessage("Temporary address district is required"),
-    body("temporaryAddress.pincode")
-      .isNumeric()
-      .withMessage("Temporary address pincode must be numeric"),
-    body("rentType")
-      .isIn(["monthly", "weekly"])
-      .withMessage("Invalid rent type"),
-    body("rentedDate").isISO8601().withMessage("Invalid rented date format"),
-  ];
+// Validation schema for creating a new tenant
+const createTenantSchema = Joi.object({
+  name: Joi.string().required(),
+  email: Joi.string().email().required(),
+  mobileNo: Joi.number().integer().required(),
+  type: Joi.string().valid("Student", "Employed", "Guest").required(),
+  hostelId: Joi.string().required(), // Assuming hostelId is a string
+  roomId: Joi.string().required(), // Assuming roomId is a string
+  emergencyContactNumber: Joi.number(),
+  adhaarNumber: Joi.string().required(),
+  permanentAddress: Joi.object({
+    state: Joi.string().required(),
+    district: Joi.string().required(),
+    pincode: Joi.number().required(),
+  }).required(),
+  temporaryAddress: Joi.object({
+    state: Joi.string().required(),
+    district: Joi.string().required(),
+    pincode: Joi.number().required(),
+  }).required(),
+  rentedDate: Joi.date().iso().required(),
+  rentType: Joi.string()
+    .valid("daily", "monthly")
+    .default("monthly")
+    .required(),
+});
+
+// Validation function for create tenant request
+
+module.exports = {
+  createTenantSchema,
 };

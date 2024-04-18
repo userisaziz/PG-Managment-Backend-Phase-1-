@@ -10,5 +10,4 @@ exports.createHostelValidator = Joi.object({
     district: Joi.string().required(),
     pincode: Joi.number().required(),
   }),
-  floors: Joi.array().items(Joi.number().integer().min(1)),
 });

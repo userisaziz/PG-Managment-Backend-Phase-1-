@@ -15,11 +15,22 @@ const hostelSchema = new mongoose.Schema(
       required: true,
     },
     address: addressSchema,
-    floors: [Number], // Array to store floor numbers
+    floors: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Floor",
+      },
+    ],
     pgType: {
       type: String,
       enum: ["Male", "Female", "Co-living"],
     },
+    rooms: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Room",
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -73,7 +73,24 @@ const tenantSchema = new mongoose.Schema(
       default: "monthly",
       required: true,
     },
+    rentHistory: [
+      {
+        month: {
+          type: String,
+          required: true,
+        },
+        year: {
+          type: Number,
+          required: true,
+        },
+        amountPaid: {
+          type: Number,
+          required: true,
+        },
+      },
+    ],
   },
+
   {
     timestamps: true,
   }

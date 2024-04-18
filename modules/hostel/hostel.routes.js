@@ -12,8 +12,10 @@ router.put("/edit-hostel", hostelController.updateHostel);
 router.delete("/delete-hostel", hostelController.deleteHostel);
 
 // Floor management
-router.post("/hostels/floors/add", hostelController.addFloor);
-router.put("/hostels/floors/edit", hostelController.editFloor);
-router.delete("/hostels/floors/remove", hostelController.removeFloor);
+router.post("/add-floor", hostelController.addFloorToHostel);
+router.post("/remove-floor", hostelController.removeFloorFromHostel);
+
+router.post("/addRoomToFloor", hostelController.addRoomToFloor);
+router.post("/removeRoomFromFloor", hostelController.removeRoomFromFloor);
 
 module.exports = router;

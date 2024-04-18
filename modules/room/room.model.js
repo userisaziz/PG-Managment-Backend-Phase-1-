@@ -1,21 +1,5 @@
 const mongoose = require("mongoose");
 
-const bookingSchema = new mongoose.Schema({
-  tenantId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Tenant",
-    required: true,
-  },
-  checkInDate: {
-    type: Date,
-    required: true,
-  },
-  checkOutDate: {
-    type: Date,
-    required: true,
-  },
-});
-
 const roomSchema = new mongoose.Schema(
   {
     roomNo: {
@@ -26,13 +10,9 @@ const roomSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    roomId: {
+    floorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "RoomType",
-      required: true,
-    },
-    floor: {
-      type: Number,
+      ref: "Floor",
       required: true,
     },
     hostelId: {
@@ -40,6 +20,13 @@ const roomSchema = new mongoose.Schema(
       ref: "Hostel",
       required: true,
     },
+
+    tenants: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Tenant",
+      },
+    ],
     isEmpty: {
       type: Boolean,
       required: true,
@@ -57,7 +44,6 @@ const roomSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    bookings: [bookingSchema],
   },
   { timestamps: true }
 );

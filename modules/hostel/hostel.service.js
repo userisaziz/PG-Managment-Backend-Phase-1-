@@ -16,12 +16,40 @@ exports.createHostel = async (data) => {
   }
 };
 
-exports.getAllHostels = async () => {
+exports.getAllHostelWithDetails = async (data) => {
   try {
-    const hostels = await Hostel.find();
-    if (!hostels.length) {
-      throw new NotFound("Hostels not found");
-    }
+    const hostels = await Hostel.aggregate([
+      {
+        $lookup: {
+          from: "rooms",
+          localField: "_id",
+          foreignField: "hostel",
+          as: "rooms",
+        },
+      },
+      {
+        $lookup: {
+          from: "tenants",
+          localField: "rooms._id",
+          foreignField: "room",
+          as: "tenants",
+        },
+      },
+      {
+        $addFields: {
+          numOfRooms: { $size: "$rooms" },
+          numOfTenants: { $size: "$tenants" },
+        },
+      },
+
+      {
+        $project: {
+          rooms: 0, // Exclude rooms array from the result
+          tenants: 0, // Exclude tenants array from the result
+        },
+      },
+    ]);
+
     return {
       status: 200,
       message: "Hostels fetched successfully",

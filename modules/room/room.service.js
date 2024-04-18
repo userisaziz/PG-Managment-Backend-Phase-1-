@@ -1,5 +1,8 @@
 const Room = require("./room.model");
 const { NotFound } = require("../../utils/errorHandling");
+const Floor = require("../floor/floor.model");
+const RoomType = require("../roomType/roomType.model");
+const Hostel = require("../hostel/hostel.model");
 
 exports.createRoom = async (data) => {
   try {
@@ -8,22 +11,6 @@ exports.createRoom = async (data) => {
       status: 200,
       message: "Room created successfully",
       data: room,
-    };
-  } catch (error) {
-    throw error;
-  }
-};
-
-exports.getAllRooms = async () => {
-  try {
-    const rooms = await Room.find();
-    if (!rooms.length) {
-      throw new NotFound("Rooms not found");
-    }
-    return {
-      status: 200,
-      message: "Rooms fetched successfully",
-      data: rooms,
     };
   } catch (error) {
     throw error;
@@ -78,57 +65,108 @@ exports.deleteRoom = async (id) => {
   }
 };
 
-exports.isRoomBooked = async (roomId, checkInDate, checkOutDate) => {
+exports.getAllRoomsWithDetails = async (
+  hostelId,
+  floorNumber,
+  roomNumber,
+  occupancyStatus
+) => {
   try {
-    const room = await Room.findById(roomId);
-    if (!room) {
-      throw new NotFound("Room not found");
+    // Define the match object to filter based on the provided parameters
+    const match = {};
+    if (hostelId) {
+      match.hostel = mongoose.Types.ObjectId(hostelId);
     }
-
-    const bookings = room.bookings || [];
-
-    // Check if any booking overlaps with the given dates
-    for (const booking of bookings) {
-      if (
-        (checkInDate >= booking.checkInDate &&
-          checkInDate <= booking.checkOutDate) ||
-        (checkOutDate >= booking.checkInDate &&
-          checkOutDate <= booking.checkOutDate) ||
-        (checkInDate <= booking.checkInDate &&
-          checkOutDate >= booking.checkOutDate)
-      ) {
-        return true;
-      }
+    if (floorNumber) {
+      match.floorId = mongoose.Types.ObjectId(floorNumber);
     }
-
-    return false;
-  } catch (error) {
-    throw error;
-  }
-};
-
-exports.bookRoom = async (roomId, tenantId, checkInDate, checkOutDate) => {
-  try {
-    const room = await Room.findById(roomId);
-    if (!room) {
-      throw new NotFound("Room not found");
+    if (roomNumber) {
+      match.roomNo = roomNumber;
     }
+    console.log("Match object:", match);
+    // Define the occupancy status filter
+    let occupancyFilter = {};
+    if (occupancyStatus === "Empty") {
+      occupancyFilter = { $expr: { $eq: ["$currentOccupancy", 0] } };
+    } else if (occupancyStatus === "Occupied") {
+      occupancyFilter = {
+        $expr: { $eq: ["$currentOccupancy", "$maxOccupancy"] },
+      };
+    } else if (occupancyStatus === "PartiallyOccupied") {
+      occupancyFilter = {
+        $expr: {
+          $and: [
+            { $gt: ["$currentOccupancy", 0] },
+            { $lt: ["$currentOccupancy", "$maxOccupancy"] },
+          ],
+        },
+      };
+    }
+    const rooms = await Room.aggregate([
+      {
+        $lookup: {
+          from: "tenants",
+          localField: "tenants",
+          foreignField: "_id",
+          as: "tenants",
+        },
+      },
+      {
+        $lookup: {
+          from: "hostels",
+          localField: "hostel",
+          foreignField: "_id",
+          as: "hostel",
+        },
+      },
+      {
+        $match: match, // Apply the filtering based on provided parameters
+      },
+      {
+        $addFields: {
+          occupancyStatus: {
+            $switch: {
+              branches: [
+                {
+                  case: { $eq: ["$currentOccupancy", 0] },
+                  then: "Fully Empty",
+                },
+                {
+                  case: { $eq: ["$currentOccupancy", "$maxOccupancy"] },
+                  then: "Fully Occupied",
+                },
+              ],
+              default: "Partially Occupied",
+            },
+          },
+        },
+      },
+      {
+        $match: occupancyFilter, // Apply occupancy status filter
+      },
+      {
+        $project: {
+          tenants: 0,
+          hostel: 0,
+        },
+      },
+    ]);
 
-    // Add booking details to the room
-    room.bookings.push({
-      tenantId,
-      checkInDate,
-      checkOutDate,
-    });
-
-    await room.save();
+    if (!rooms || rooms.length === 0) {
+      return {
+        status: 200,
+        message: "No rooms found matching the provided parameters",
+        data: [],
+      };
+    }
 
     return {
       status: 200,
-      message: "Room booked successfully",
-      data: room,
+      message: "Rooms fetched successfully",
+      data: rooms,
     };
   } catch (error) {
-    throw error;
+    console.error("Error while fetching rooms:", error);
+    throw new Error("Error while fetching rooms");
   }
 };

@@ -1,40 +1,41 @@
 const TenantService = require("./tenant.service");
+
 const RoomService = require("../room/room.service");
 const { BadRequest } = require("../../utils/errorHandling");
 const {
-  createTenantValidator,
+  createTenantSchema,
   updateTenantValidator,
   paramsIdValidator,
 } = require("./tenant.validator");
-const Room = require("../room/room.model");
+const Tenant = require("./tenant.model");
+
 exports.createTenant = async (req, res, next) => {
+  console.log("req: ", req.body.roomId);
   try {
-    const { error } = createTenantValidator.validate(req.body);
+    const { error } = createTenantSchema.validate(req.body);
     if (error) {
       throw new BadRequest(`Validation error: ${error.details[0].message}`);
     }
 
-    let room = await RoomService.getRoomById(req.body.roomId);
+    const room = await RoomService.getRoomById(req.body.roomId);
+    console.log("room: ", room);
+
     if (!room) {
       throw new BadRequest("Invalid room ID");
     }
 
-    if (room.currentOccupancy >= room.maxOccupancy) {
+    if (room.data.currentOccupancy >= room.data.maxOccupancy) {
       throw new BadRequest("No more beds available in this room");
     }
 
+    // Update current occupancy
+    room.data.currentOccupancy += 1;
+    await room.data.save();
+
     const tenant = await TenantService.createTenant(req.body);
 
-    // Adjust current occupancy of the room
-    room.currentOccupancy += 1;
-
-    // If room is not a Mongoose document, convert it to one
-    if (!room.save) {
-      room = new Room(room);
-    }
-
-    // Save changes to the room
-    await room.save();
+    room.data.tenants.push(tenant.data._id);
+    await room.data.save();
 
     res.status(201).json(tenant);
   } catch (error) {
@@ -44,7 +45,31 @@ exports.createTenant = async (req, res, next) => {
 
 exports.getAllTenants = async (req, res, next) => {
   try {
-    const tenants = await TenantService.getAllTenants();
+    // Extract query parameters from request
+    const { name, roomNo, floor, hostel } = req.query;
+
+    // Call the service method to get all tenants
+    let tenants = await TenantService.getAllTenants();
+
+    // Filter the tenants based on the query parameters
+    if (name) {
+      tenants = tenants.filter((tenant) =>
+        tenant.name.toLowerCase().includes(name.toLowerCase())
+      );
+    }
+    if (roomNo) {
+      tenants = tenants.filter((tenant) => tenant.roomNo === roomNo);
+    }
+    if (floor) {
+      tenants = tenants.filter((tenant) => tenant.floor === floor);
+    }
+    if (hostel) {
+      tenants = tenants.filter(
+        (tenant) => tenant.hostel.toLowerCase() === hostel.toLowerCase()
+      );
+    }
+
+    // Send the filtered tenants as response
     res.status(200).json(tenants);
   } catch (error) {
     next(error);
@@ -136,5 +161,54 @@ exports.deleteTenant = async (req, res, next) => {
     res.status(200).json(result);
   } catch (error) {
     next(error);
+  }
+};
+
+exports.markRentPayment = async (req, res) => {
+  try {
+    const { tenantId, amountPaid, month, year } = req.body;
+    const tenant = await Tenant.findById(tenantId);
+
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant not found" });
+    }
+
+    // Check if there's already a payment entry for this month and year
+    const isPaymentMarked = tenant.rentHistory.some(
+      (payment) => payment.month === month && payment.year === year
+    );
+    if (isPaymentMarked) {
+      return res.status(400).json({
+        message: "Rent payment for this month and year is already marked",
+      });
+    }
+
+    tenant.rentHistory.push({ month, year, amountPaid });
+    await tenant.save();
+
+    res.status(200).json({ message: "Rent payment marked successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// Controller to get tenants with overdue payments
+exports.getTenantsWithOverduePayments = async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    let query = { "rentHistory.year": { $ne: year } }; // Initialize the query to find tenants who haven't paid for the given year
+
+    // If month is provided, add month filter to the query
+    if (month) {
+      query["rentHistory.month"] = month;
+    }
+
+    const tenants = await Tenant.find(query);
+
+    res.status(200).json(tenants);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal server error" });
   }
 };

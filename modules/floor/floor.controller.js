@@ -10,10 +10,17 @@ exports.createFloor = async (req, res) => {
   }
 };
 
-// Get all floors
 exports.getAllFloors = async (req, res) => {
   try {
-    const floors = await Floor.find();
+    const floors = await Floor.aggregate([
+      {
+        $group: {
+          _id: "$hostel", // Group by hostel field
+          hostel: { $first: "$hostel.name" }, // Retrieve the hostel name
+          floors: { $push: "$$ROOT" }, // Push entire floor documents into an array
+        },
+      },
+    ]);
     res.status(200).json(floors);
   } catch (error) {
     res.status(500).json({ error: error.message });

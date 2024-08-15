@@ -8,7 +8,9 @@ const {
   paramsIdValidator,
 } = require("./tenant.validator");
 const Tenant = require("./tenant.model");
+const Hostel = require("../hostel/hostel.model");
 
+const { getCurrentMonthYear } = require("../../utils/getCurrentMonthYear");
 exports.createTenant = async (req, res, next) => {
   console.log("req: ", req.body.roomId);
   try {
@@ -17,9 +19,26 @@ exports.createTenant = async (req, res, next) => {
       throw new BadRequest(`Validation error: ${error.details[0].message}`);
     }
 
-    const room = await RoomService.getRoomById(req.body.roomId);
-    console.log("room: ", room);
+    // Validate date format
+    const { rentedDate, hostelId, roomId, ...tenantData } = req.body;
+    const datePattern = /^\d{2}-\d{2}-\d{4}$/;
+    if (!datePattern.test(rentedDate)) {
+      throw new BadRequest(
+        "Invalid date format. Expected format is DD-MM-YYYY"
+      );
+    }
 
+    // Convert the date to a JavaScript Date object
+    const [day, month, year] = rentedDate.split("-");
+    const formattedDate = new Date(`${year}-${month}-${day}`);
+    tenantData.rentedDate = formattedDate;
+
+    const hostel = await Hostel.findById(hostelId);
+    if (!hostel) {
+      throw new BadRequest("Invalid hostel");
+    }
+
+    const room = await RoomService.getRoomById(roomId);
     if (!room) {
       throw new BadRequest("Invalid room ID");
     }
@@ -32,17 +51,21 @@ exports.createTenant = async (req, res, next) => {
     room.data.currentOccupancy += 1;
     await room.data.save();
 
-    const tenant = await TenantService.createTenant(req.body);
-
+    const tenant = await TenantService.createTenant({
+      ...tenantData,
+      roomId,
+      hostelId,
+    });
     room.data.tenants.push(tenant.data._id);
     await room.data.save();
 
+    hostel.tenants.push(tenant.data._id);
+    await hostel.save();
     res.status(201).json(tenant);
   } catch (error) {
     next(error);
   }
 };
-
 exports.getAllTenants = async (req, res, next) => {
   try {
     // Extract query parameters from request
@@ -155,7 +178,7 @@ exports.deleteTenant = async (req, res, next) => {
     if (room) {
       // Decrement current occupancy of the room
       room.currentOccupancy -= 1;
-      await room.save();
+      await room.data.save();
     }
     const result = await TenantService.deleteTenant(req.params.id);
     res.status(200).json(result);
@@ -164,49 +187,106 @@ exports.deleteTenant = async (req, res, next) => {
   }
 };
 
-exports.markRentPayment = async (req, res) => {
-  try {
-    const { tenantId, amountPaid, month, year } = req.body;
-    const tenant = await Tenant.findById(tenantId);
+exports.markRentPaid = async (req, res) => {
+  const { tenantId, amountPaid, month, year } = req.body;
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1; // Months are zero-based
+  const currentYear = currentDate.getFullYear();
 
+  try {
+    const tenant = await Tenant.findById(tenantId);
     if (!tenant) {
-      return res.status(404).json({ message: "Tenant not found" });
+      return res.status(404).json({ error: "Tenant not found" });
     }
 
-    // Check if there's already a payment entry for this month and year
-    const isPaymentMarked = tenant.rentHistory.some(
-      (payment) => payment.month === month && payment.year === year
+    const rentedDate = new Date(tenant.rentedDate);
+    const rentedMonth = rentedDate.getMonth() + 1;
+    const rentedYear = rentedDate.getFullYear();
+
+    // Validate the month and year
+    if (
+      year < rentedYear ||
+      (year === rentedYear && month < rentedMonth) ||
+      year > currentYear ||
+      (year === currentYear && month > currentMonth)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Invalid month or year for rent payment" });
+    }
+
+    const existingEntry = tenant.rentHistory.find(
+      (entry) => entry.month === month && entry.year === year
     );
-    if (isPaymentMarked) {
-      return res.status(400).json({
-        message: "Rent payment for this month and year is already marked",
+
+    if (existingEntry) {
+      if (existingEntry.amountPaid > 0) {
+        return res.status(400).json({
+          error: "Rent has already been paid for this month",
+        });
+      } else {
+        existingEntry.amountPaid = amountPaid;
+        existingEntry.date = currentDate;
+      }
+    } else {
+      tenant.rentHistory.push({
+        month,
+        year,
+        amountPaid,
+        date: currentDate,
       });
     }
 
-    tenant.rentHistory.push({ month, year, amountPaid });
     await tenant.save();
-
-    res.status(200).json({ message: "Rent payment marked successfully" });
+    res.status(200).json({
+      message: "Rent marked as paid",
+      month,
+      year,
+      date: currentDate,
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ error: err.message });
   }
 };
 
-// Controller to get tenants with overdue payments
 exports.getTenantsWithOverduePayments = async (req, res) => {
   try {
-    const { year, month } = req.query;
-    let query = { "rentHistory.year": { $ne: year } }; // Initialize the query to find tenants who haven't paid for the given year
+    const tenants = await Tenant.find();
 
-    // If month is provided, add month filter to the query
-    if (month) {
-      query["rentHistory.month"] = month;
-    }
+    const tenantsWithOverduePayments = tenants.map((tenant) => {
+      const rentedDate = new Date(tenant.rentedDate);
+      const currentDate = new Date();
+      const monthsSinceRented =
+        (currentDate.getFullYear() - rentedDate.getFullYear()) * 12 +
+        (currentDate.getMonth() - rentedDate.getMonth());
 
-    const tenants = await Tenant.find(query);
+      const lastPaymentEntry = tenant.rentHistory.slice().sort((a, b) => {
+        const dateA = new Date(a.year, a.month - 1);
+        const dateB = new Date(b.year, b.month - 1);
+        return dateB - dateA;
+      })[0];
 
-    res.status(200).json(tenants);
+      const lastPaymentMonth = lastPaymentEntry
+        ? `${lastPaymentEntry.month}/${lastPaymentEntry.year}`
+        : "Not available";
+
+      const monthsSinceLastPayment = lastPaymentEntry
+        ? (currentDate.getFullYear() - lastPaymentEntry.year) * 12 +
+          (currentDate.getMonth() - (lastPaymentEntry.month - 1))
+        : monthsSinceRented;
+
+      return {
+        tenantId: tenant._id,
+        monthsSinceLastPayment,
+        lastPaymentMonth,
+      };
+    });
+
+    const overduePayments = tenantsWithOverduePayments.filter(
+      (tenant) => tenant.monthsSinceLastPayment > 1
+    );
+
+    res.status(200).json(overduePayments);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Internal server error" });

@@ -160,3 +160,161 @@ exports.removeFloorFromHostel = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getAnalytics = async (req, res) => {
+  try {
+    const hostels = await Hostel.find().populate("floors rooms tenants");
+
+    const analytics = hostels.reduce(
+      (acc, hostel) => {
+        const rooms = hostel.rooms;
+        const occupiedRooms = rooms.filter((room) => room.currentOccupancy > 0);
+        const totalBeds = rooms.reduce(
+          (sum, room) => sum + room.maxOccupancy,
+          0
+        );
+        const occupiedBeds = rooms.reduce(
+          (sum, room) => sum + room.currentOccupancy,
+          0
+        );
+        const monthlyIncome = hostel.tenants.reduce((sum, tenant) => {
+          const latestRent =
+            tenant.rentHistory.slice(-1)[0] &&
+            tenant.rentHistory.slice(-1)[0].rentType === "monthly";
+          return (
+            sum + (latestRent ? tenant.rentHistory.slice(-1)[0].amountPaid : 0)
+          );
+        }, 0);
+        const dailyIncome = hostel.tenants.reduce((sum, tenant) => {
+          const latestRent =
+            tenant.rentHistory.slice(-1)[0] &&
+            tenant.rentHistory.slice(-1)[0].rentType === "daily";
+          return (
+            sum + (latestRent ? tenant.rentHistory.slice(-1)[0].amountPaid : 0)
+          );
+        }, 0);
+        let netIncome = monthlyIncome + dailyIncome;
+
+        if (req.query.period) {
+          const period = req.query.period.toLowerCase();
+          const startDate = new Date();
+          const endDate = new Date();
+
+          switch (period) {
+            case "weekly":
+              startDate.setDate(startDate.getDate() - 7);
+              break;
+            case "monthly":
+              startDate.setMonth(startDate.getMonth() - 1);
+              break;
+            case "yearly":
+              startDate.setFullYear(startDate.getFullYear() - 1);
+              break;
+            default:
+              break;
+          }
+
+          const filteredTenants = hostel.tenants.filter((tenant) => {
+            const latestRent = tenant.rentHistory.slice(-1)[0];
+            return (
+              latestRent &&
+              latestRent.date >= startDate &&
+              latestRent.date <= endDate
+            );
+          });
+
+          const periodIncome = filteredTenants.reduce((sum, tenant) => {
+            const latestRent = tenant.rentHistory.slice(-1)[0];
+            return sum + (latestRent ? latestRent.amountPaid : 0);
+          }, 0);
+
+          netIncome = periodIncome;
+        }
+
+        acc.totalRooms += rooms.length;
+        acc.occupiedRooms += occupiedRooms.length;
+        acc.vacantRooms += rooms.length - occupiedRooms.length;
+        acc.totalBeds += totalBeds;
+        acc.occupiedBeds += occupiedBeds;
+        acc.vacantBeds += totalBeds - occupiedBeds;
+        acc.totalTenants += hostel.tenants.length;
+        acc.monthlyIncome += monthlyIncome;
+        acc.dailyIncome += dailyIncome;
+        acc.netIncome += netIncome;
+        acc.revenueByHostel.push({
+          hostelName: hostel.name,
+          netIncome,
+        });
+
+        return acc;
+      },
+      {
+        totalRooms: 0,
+        occupiedRooms: 0,
+        vacantRooms: 0,
+        totalBeds: 0,
+        occupiedBeds: 0,
+        vacantBeds: 0,
+        totalTenants: 0,
+        monthlyIncome: 0,
+        dailyIncome: 0,
+        netIncome: 0,
+        revenueByHostel: [],
+      }
+    );
+
+    if (req.query.hostelName) {
+      const hostel = hostels.find(
+        (hostel) => hostel.name === req.query.hostelName
+      );
+      if (hostel) {
+        const hostelAnalytics = await hostelAnalytics(hostel);
+        res.json(hostelAnalytics);
+      } else {
+        res.status(404).json({ error: "Hostel not found" });
+      }
+    } else {
+      res.json(analytics);
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const hostelAnalytics = async (hostel) => {
+  const rooms = hostel.rooms;
+  const occupiedRooms = rooms.filter((room) => room.currentOccupancy > 0);
+  const totalBeds = rooms.reduce((sum, room) => sum + room.maxOccupancy, 0);
+  const occupiedBeds = rooms.reduce(
+    (sum, room) => sum + room.currentOccupancy,
+    0
+  );
+  const monthlyIncome = hostel.tenants.reduce((sum, tenant) => {
+    const latestRent =
+      tenant.rentHistory.slice(-1)[0] &&
+      tenant.rentHistory.slice(-1)[0].rentType === "monthly";
+    return sum + (latestRent ? tenant.rentHistory.slice(-1)[0].amountPaid : 0);
+  }, 0);
+  const dailyIncome = hostel.tenants.reduce((sum, tenant) => {
+    const latestRent =
+      tenant.rentHistory.slice(-1)[0] &&
+      tenant.rentHistory.slice(-1)[0].rentType === "daily";
+    return sum + (latestRent ? tenant.rentHistory.slice(-1)[0].amountPaid : 0);
+  }, 0);
+  const netIncome = monthlyIncome + dailyIncome;
+
+  return {
+    hostelName: hostel.name,
+    totalRooms: rooms.length,
+    occupiedRooms: occupiedRooms.length,
+    vacantRooms: rooms.length - occupiedRooms.length,
+    totalBeds,
+    occupiedBeds,
+    vacantBeds: totalBeds - occupiedBeds,
+    totalTenants: hostel.tenants.length,
+    monthlyIncome,
+    dailyIncome,
+    netIncome,
+  };
+};

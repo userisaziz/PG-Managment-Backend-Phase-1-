@@ -15,6 +15,7 @@ const roomSchema = new mongoose.Schema(
       ref: "Floor",
       required: true,
     },
+
     hostelId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Hostel",
@@ -27,10 +28,7 @@ const roomSchema = new mongoose.Schema(
         ref: "Tenant",
       },
     ],
-    isEmpty: {
-      type: Boolean,
-      required: true,
-    },
+
     feeMonth: {
       type: Number,
       required: true,

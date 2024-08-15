@@ -1,5 +1,5 @@
 const RoomService = require("./room.service");
-const RoomType = require("../roomType/roomType.model");
+
 const { BadRequest, NotFound } = require("../../utils/errorHandling");
 const {
   createRoomValidator,
@@ -7,28 +7,22 @@ const {
 } = require("./room.validator");
 const TenantService = require("../tenants/tenant.service");
 const Hostel = require("../hostel/hostel.model");
+const Floor = require("../floor/floor.model");
 exports.createRoom = async (req, res, next) => {
   try {
-    // Validate the request body
     const { error } = createRoomValidator.validate(req.body);
     if (error) {
       throw new BadRequest(`Validation error: ${error.details[0].message}`);
     }
-
-    // Extract required data from the request body
     const { hostelId, ...roomData } = req.body;
-    // console.log("roomTypeId: ", roomTypeId);
 
-    // Check if room type exists
-    // const type = await RoomType.findById(roomTypeId);
-    // if (!type) {
-    //   throw new BadRequest("Invalid room type");
-    // }
-
-    // Check if hostel exists
     const hostel = await Hostel.findById(hostelId);
     if (!hostel) {
       throw new BadRequest("Invalid hostel");
+    }
+    const floor = await Floor.findById(req.body.floorId);
+    if (!floor) {
+      throw new BadRequest("Invalid floor");
     }
 
     // Add the hostelId to roomData
@@ -37,9 +31,24 @@ exports.createRoom = async (req, res, next) => {
     // Create the room
     const room = await RoomService.createRoom(roomData);
 
-    // Associate the room with the hostel
-    hostel.rooms.push(room.data._id);
-    await hostel.save();
+    // // Associate the room with the hostel
+    // hostel.rooms.push(room.data._id);
+    // await hostel.save();
+    // // Associate the room with the floor
+    // floor.rooms.push(room.data._id);
+    // await floor.save();
+
+    // Associate the room with the hostel using $addToSet
+    await Hostel.updateOne(
+      { _id: hostelId },
+      { $addToSet: { rooms: room.data._id } }
+    );
+
+    // Associate the room with the floor using $addToSet
+    await Floor.updateOne(
+      { _id: req.body.floorId },
+      { $addToSet: { rooms: room.data._id } }
+    );
 
     res.status(201).json(room);
   } catch (error) {
@@ -49,10 +58,11 @@ exports.createRoom = async (req, res, next) => {
 
 exports.getAllRooms = async (req, res, next) => {
   try {
-    const { hostelId, floorNumber, roomNumber, occupancyStatus } = req.query;
+    const { hostelId, floorId, roomNumber, occupancyStatus } = req.query;
+    console.log("req.query: ", req.query);
     const rooms = await RoomService.getAllRoomsWithDetails(
       hostelId,
-      floorNumber,
+      floorId,
       roomNumber,
       occupancyStatus
     );
@@ -89,11 +99,6 @@ exports.updateRoom = async (req, res, next) => {
     const { error } = updateRoomValidator.validate(req.body);
     if (error) {
       throw new BadRequest(`Validation error: ${error.details[0].message}`);
-    }
-
-    const type = await RoomType.findById(req.body.roomType);
-    if (!type) {
-      throw new BadRequest("Invalid room type");
     }
 
     const room = await RoomService.getRoomById(req.body.roomId);

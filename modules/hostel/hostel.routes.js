@@ -3,7 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const hostelController = require("./hostel.controller");
-
+router.get("/analytics", hostelController.getAnalytics);
 // CRUD operations for hostels
 router.post("/create-hostel", hostelController.createHostel);
 router.get("/all-hostels", hostelController.getAllHostels);

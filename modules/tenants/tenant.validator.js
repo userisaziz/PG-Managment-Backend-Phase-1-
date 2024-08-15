@@ -6,9 +6,9 @@ const createTenantSchema = Joi.object({
   email: Joi.string().email().required(),
   mobileNo: Joi.number().integer().required(),
   type: Joi.string().valid("Student", "Employed", "Guest").required(),
-  hostelId: Joi.string().required(), // Assuming hostelId is a string
-  roomId: Joi.string().required(), // Assuming roomId is a string
-  emergencyContactNumber: Joi.number(),
+  hostelId: Joi.string().required(),
+  roomId: Joi.string().required(),
+  emergencyContactNumber: Joi.number().required(),
   adhaarNumber: Joi.string().required(),
   permanentAddress: Joi.object({
     state: Joi.string().required(),
@@ -16,19 +16,25 @@ const createTenantSchema = Joi.object({
     pincode: Joi.number().required(),
   }).required(),
   temporaryAddress: Joi.object({
-    state: Joi.string().required(),
-    district: Joi.string().required(),
-    pincode: Joi.number().required(),
+    state: Joi.string(),
+    district: Joi.string(),
+    pincode: Joi.number(),
   }).required(),
-  rentedDate: Joi.date().iso().required(),
+  rentedDate: Joi.string()
+    .pattern(/^\d{2}-\d{2}-\d{4}$/)
+    .required(),
   rentType: Joi.string()
     .valid("daily", "monthly")
     .default("monthly")
     .required(),
 });
 
-// Validation function for create tenant request
-
+const paramsIdValidator = Joi.object({
+  id: Joi.string()
+    .pattern(/^[0-9a-fA-F]{24}$/)
+    .required(),
+});
 module.exports = {
   createTenantSchema,
+  paramsIdValidator,
 };

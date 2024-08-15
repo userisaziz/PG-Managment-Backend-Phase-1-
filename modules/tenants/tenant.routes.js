@@ -10,7 +10,7 @@ router.put("/:id", TenantController.updateTenant);
 router.delete("/:id", TenantController.deleteTenant);
 //
 
-router.post("/mark-rent-payment", TenantController.markRentPayment);
+router.post("/mark-rent-payment", TenantController.markRentPaid);
 router.get("/overdue-payments", TenantController.getTenantsWithOverduePayments);
 
 module.exports = router;

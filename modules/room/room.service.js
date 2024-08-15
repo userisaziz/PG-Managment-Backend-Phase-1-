@@ -1,9 +1,9 @@
 const Room = require("./room.model");
 const { NotFound } = require("../../utils/errorHandling");
 const Floor = require("../floor/floor.model");
-const RoomType = require("../roomType/roomType.model");
-const Hostel = require("../hostel/hostel.model");
 
+const Hostel = require("../hostel/hostel.model");
+const mongoose = require("mongoose");
 exports.createRoom = async (data) => {
   try {
     const room = await Room.create(data);
@@ -67,41 +67,44 @@ exports.deleteRoom = async (id) => {
 
 exports.getAllRoomsWithDetails = async (
   hostelId,
-  floorNumber,
+  floorId,
   roomNumber,
   occupancyStatus
 ) => {
   try {
-    // Define the match object to filter based on the provided parameters
     const match = {};
+
+    // Build the match object based on the provided parameters
     if (hostelId) {
-      match.hostel = mongoose.Types.ObjectId(hostelId);
+      match.hostelId = new mongoose.Types.ObjectId(hostelId);
     }
-    if (floorNumber) {
-      match.floorId = mongoose.Types.ObjectId(floorNumber);
+    if (floorId) {
+      match.floorId = new mongoose.Types.ObjectId(floorId);
     }
     if (roomNumber) {
       match.roomNo = roomNumber;
     }
-    console.log("Match object:", match);
-    // Define the occupancy status filter
-    let occupancyFilter = {};
-    if (occupancyStatus === "Empty") {
-      occupancyFilter = { $expr: { $eq: ["$currentOccupancy", 0] } };
-    } else if (occupancyStatus === "Occupied") {
-      occupancyFilter = {
-        $expr: { $eq: ["$currentOccupancy", "$maxOccupancy"] },
-      };
-    } else if (occupancyStatus === "PartiallyOccupied") {
-      occupancyFilter = {
-        $expr: {
+
+    // Construct the occupancy filter based on the occupancy status
+    const occupancyFilter = {};
+    switch (occupancyStatus) {
+      case "Empty":
+        occupancyFilter.$expr = { $eq: ["$currentOccupancy", 0] };
+        break;
+      case "Occupied":
+        occupancyFilter.$expr = { $eq: ["$currentOccupancy", "$maxOccupancy"] };
+        break;
+      case "PartiallyOccupied":
+        occupancyFilter.$expr = {
           $and: [
             { $gt: ["$currentOccupancy", 0] },
             { $lt: ["$currentOccupancy", "$maxOccupancy"] },
           ],
-        },
-      };
+        };
+        break;
     }
+
+    // Aggregate rooms with detailed information
     const rooms = await Room.aggregate([
       {
         $lookup: {
@@ -114,44 +117,65 @@ exports.getAllRoomsWithDetails = async (
       {
         $lookup: {
           from: "hostels",
-          localField: "hostel",
+          localField: "hostelId",
           foreignField: "_id",
           as: "hostel",
         },
       },
       {
-        $match: match, // Apply the filtering based on provided parameters
+        $lookup: {
+          from: "floors",
+          localField: "floorId",
+          foreignField: "_id",
+          as: "floor",
+        },
+      },
+      {
+        $match: match,
       },
       {
         $addFields: {
+          hostelName: { $arrayElemAt: ["$hostel.name", 0] },
+          floorNumber: { $arrayElemAt: ["$floor.floorNumber", 0] },
           occupancyStatus: {
             $switch: {
               branches: [
                 {
                   case: { $eq: ["$currentOccupancy", 0] },
-                  then: "Fully Empty",
+                  then: "isEmpty",
                 },
                 {
                   case: { $eq: ["$currentOccupancy", "$maxOccupancy"] },
-                  then: "Fully Occupied",
+                  then: "isFullyOccupied",
+                },
+                {
+                  case: {
+                    $and: [
+                      { $gt: ["$currentOccupancy", 0] },
+                      { $lt: ["$currentOccupancy", "$maxOccupancy"] },
+                    ],
+                  },
+                  then: "isPartiallyOccupied",
                 },
               ],
-              default: "Partially Occupied",
+              default: "Unknown",
             },
           },
         },
       },
       {
-        $match: occupancyFilter, // Apply occupancy status filter
+        $match: occupancyFilter,
       },
       {
         $project: {
-          tenants: 0,
           hostel: 0,
+          floor: 0,
+          tenants: 0,
         },
       },
     ]);
 
+    // Check if no rooms were found
     if (!rooms || rooms.length === 0) {
       return {
         status: 200,
@@ -160,13 +184,15 @@ exports.getAllRoomsWithDetails = async (
       };
     }
 
+    // Return the fetched rooms
     return {
       status: 200,
       message: "Rooms fetched successfully",
       data: rooms,
     };
   } catch (error) {
+    // Log and throw the error for higher-level handling
     console.error("Error while fetching rooms:", error);
-    throw new Error("Error while fetching rooms");
+    throw new Error("Error while fetching rooms: " + error.message);
   }
 };

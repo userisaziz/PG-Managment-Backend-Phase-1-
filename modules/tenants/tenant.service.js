@@ -1,47 +1,57 @@
-const roomModel = require("../room/room.model");
-const tenantModel = require("./tenant.model");
-module.exports.doCreateTenant = async (body) => {
+const Tenant = require("./tenant.model");
+
+async function createTenant(data) {
   try {
-    const tenant = await tenantModel.create(body);
-    await roomModel.findByIdAndUpdate(
-      body.roomId,
-      {
-        $inc: { bedRemaining: -1 },
-        $set: { isEmpty: { $cond: [{ $eq: ['$bedRemaining', 0] }, false, true] } },
-      },
-      { new: true }
-    );
-    
- 
+    const tenant = await Tenant.create(data);
     return {
       status: 200,
-      message: "tenant created successfully",
+      message: "Tenant added successfully",
+      data: tenant,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
+exports.createTenant = createTenant;
+
+exports.getAllTenants = async () => {
+  try {
+    const tenant = await Tenant.find();
+    return {
+      status: 200,
+      message: "Tenants found successfully",
       data: tenant,
     };
   } catch (error) {
     throw error;
   }
 };
-module.exports.doGetAllTenant = async () => {
+
+exports.getTenantById = async (id) => {
   try {
-    const tenant = await tenantModel.find();
-    return {
-      status: 200,
-      message: "tenant fetched successfully",
-      data: tenant,
-    };
+    const tenant = await Tenant.findById(id);
+    return tenant;
   } catch (error) {
     throw error;
   }
 };
-module.exports.doGetTenant = async (id) => {
+
+exports.updateTenant = async (id, newData) => {
   try {
-    const tenant = await tenantModel.findById(id);
-    return {
-      status: 200,
-      message: "tenant fetched successfully",
-      data: tenant,
-    };
+    const updatedTenant = await Tenant.findByIdAndUpdate(id, newData, {
+      new: true,
+    });
+    return updatedTenant;
+  } catch (error) {
+    throw error;
+  }
+};
+
+exports.deleteTenant = async (id) => {
+  try {
+    const deletedTenant = await Tenant.findByIdAndDelete(id);
+    return deletedTenant;
   } catch (error) {
     throw error;
   }

@@ -1,16 +1,18 @@
 // expenseController.js
 
 const expenseService = require("./expense.service");
-
 exports.createExpense = async (req, res) => {
   try {
     const expense = await expenseService.createExpense(req.body);
+
+    // Update the hostel's expenses
+    await expenseService.updateHostelExpenses(expense.Hostel, expense.Amount);
+
     res.status(201).json(expense);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-};
-
+}
 exports.getExpenseById = async (req, res) => {
   try {
     const expense = await expenseService.getExpenseById(req.params.id);
@@ -33,6 +35,7 @@ exports.updateExpense = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+
 };
 
 exports.deleteExpense = async (req, res) => {

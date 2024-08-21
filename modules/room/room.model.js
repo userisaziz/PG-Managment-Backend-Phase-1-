@@ -15,20 +15,17 @@ const roomSchema = new mongoose.Schema(
       ref: "Floor",
       required: true,
     },
-
     hostelId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Hostel",
       required: true,
     },
-
     tenants: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Tenant",
       },
     ],
-
     feeMonth: {
       type: Number,
       required: true,

@@ -12,23 +12,18 @@ const Hostel = require("../hostel/hostel.model");
 
 const { getCurrentMonthYear } = require("../../utils/getCurrentMonthYear");
 exports.createTenant = async (req, res, next) => {
-  console.log("req: ", req.body.roomId);
   try {
     const { error } = createTenantSchema.validate(req.body);
     if (error) {
       throw new BadRequest(`Validation error: ${error.details[0].message}`);
     }
 
-    // Validate date format
     const { rentedDate, hostelId, roomId, ...tenantData } = req.body;
     const datePattern = /^\d{2}-\d{2}-\d{4}$/;
     if (!datePattern.test(rentedDate)) {
-      throw new BadRequest(
-        "Invalid date format. Expected format is DD-MM-YYYY"
-      );
+      throw new BadRequest("Invalid date format. Expected format is DD-MM-YYYY");
     }
 
-    // Convert the date to a JavaScript Date object
     const [day, month, year] = rentedDate.split("-");
     const formattedDate = new Date(`${year}-${month}-${day}`);
     tenantData.rentedDate = formattedDate;
@@ -47,7 +42,6 @@ exports.createTenant = async (req, res, next) => {
       throw new BadRequest("No more beds available in this room");
     }
 
-    // Update current occupancy
     room.data.currentOccupancy += 1;
     await room.data.save();
 
@@ -66,13 +60,15 @@ exports.createTenant = async (req, res, next) => {
     next(error);
   }
 };
+
 exports.getAllTenants = async (req, res, next) => {
   try {
     // Extract query parameters from request
     const { name, roomNo, floor, hostel } = req.query;
 
     // Call the service method to get all tenants
-    let tenants = await TenantService.getAllTenants();
+    let tenantsResponse = await TenantService.getAllTenants();
+    let tenants = tenantsResponse.data; // Extract the data property
 
     // Filter the tenants based on the query parameters
     if (name) {
@@ -92,7 +88,36 @@ exports.getAllTenants = async (req, res, next) => {
       );
     }
 
-    // Send the filtered tenants as response
+    // Add rent payment details
+    const currentDate = new Date();
+    tenants = tenants.map((tenant) => {
+      const rentedDate = new Date(tenant.rentedDate);
+      const rentHistory = tenant.rentHistory;
+      const monthsSinceRented =
+        (currentDate.getFullYear() - rentedDate.getFullYear()) * 12 +
+        (currentDate.getMonth() - rentedDate.getMonth());
+
+      const payments = Array.from({ length: monthsSinceRented + 1 }, (_, i) => {
+        const date = new Date(rentedDate);
+        date.setMonth(date.getMonth() + i);
+        const month = date.getMonth() + 1;
+        const year = date.getFullYear();
+        const paid = rentHistory.some(
+          (entry) => entry.month === `${year}-${month.toString().padStart(2, '0')}`
+        );
+        return { month, year, paid };
+      });
+
+      const overduePayments = payments.filter((payment) => !payment.paid);
+
+      return {
+        ...tenant.toObject(),
+        payments,
+        overduePayments,
+      };
+    });
+
+    // Send the tenants with payment details as response
     res.status(200).json(tenants);
   } catch (error) {
     next(error);
@@ -187,6 +212,7 @@ exports.deleteTenant = async (req, res, next) => {
   }
 };
 
+
 exports.markRentPaid = async (req, res) => {
   const { tenantId, amountPaid, month, year } = req.body;
   const currentDate = new Date();
@@ -238,6 +264,15 @@ exports.markRentPaid = async (req, res) => {
     }
 
     await tenant.save();
+
+    // Update the hostel's income
+    const hostel = await Hostel.findById(tenant.hostel);
+    if (hostel) {
+      hostel.dailyIncome += amountPaid;
+      hostel.netIncome += amountPaid;
+      await hostel.save();
+    }
+
     res.status(200).json({
       message: "Rent marked as paid",
       month,
@@ -249,46 +284,98 @@ exports.markRentPaid = async (req, res) => {
   }
 };
 
-exports.getTenantsWithOverduePayments = async (req, res) => {
+exports.getTenantsWithUnpaidRent = async (req, res) => {
   try {
+    const { month, year } = req.query;
     const tenants = await Tenant.find();
 
-    const tenantsWithOverduePayments = tenants.map((tenant) => {
+    const tenantsWithUnpaidRent = tenants.map((tenant) => {
       const rentedDate = new Date(tenant.rentedDate);
       const currentDate = new Date();
       const monthsSinceRented =
         (currentDate.getFullYear() - rentedDate.getFullYear()) * 12 +
         (currentDate.getMonth() - rentedDate.getMonth());
 
-      const lastPaymentEntry = tenant.rentHistory.slice().sort((a, b) => {
-        const dateA = new Date(a.year, a.month - 1);
-        const dateB = new Date(b.year, b.month - 1);
-        return dateB - dateA;
-      })[0];
+      const payments = Array.from({ length: monthsSinceRented + 1 }, (_, i) => {
+        const date = new Date(rentedDate);
+        date.setMonth(date.getMonth() + i);
+        const paymentMonth = date.getMonth() + 1;
+        const paymentYear = date.getFullYear();
+        const paid = tenant.rentHistory.some(
+          (entry) => entry.month === `${paymentYear}-${paymentMonth.toString().padStart(2, '0')}`
+        );
+        return { month: paymentMonth, year: paymentYear, paid };
+      });
 
-      const lastPaymentMonth = lastPaymentEntry
-        ? `${lastPaymentEntry.month}/${lastPaymentEntry.year}`
-        : "Not available";
-
-      const monthsSinceLastPayment = lastPaymentEntry
-        ? (currentDate.getFullYear() - lastPaymentEntry.year) * 12 +
-          (currentDate.getMonth() - (lastPaymentEntry.month - 1))
-        : monthsSinceRented;
+      const unpaidPayments = payments.filter((payment) => !payment.paid);
 
       return {
         tenantId: tenant._id,
-        monthsSinceLastPayment,
-        lastPaymentMonth,
+        tenantName: tenant.name,
+        unpaidPayments,
       };
     });
 
-    const overduePayments = tenantsWithOverduePayments.filter(
-      (tenant) => tenant.monthsSinceLastPayment > 1
-    );
+    let filteredTenants = tenantsWithUnpaidRent;
 
-    res.status(200).json(overduePayments);
+    if (month && year) {
+      filteredTenants = tenantsWithUnpaidRent.filter((tenant) =>
+        tenant.unpaidPayments.some(
+          (payment) => payment.month === parseInt(month) && payment.year === parseInt(year)
+        )
+      );
+    }
+
+    res.status(200).json(filteredTenants);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+exports.changeRoom = async (req, res, next) => {
+  try {
+    const { tenantId, newRoomId } = req.body;
+
+    // Validate tenant and new room
+    const tenant = await TenantService.getTenantById(tenantId);
+    if (!tenant) {
+      throw new BadRequest("Tenant not found");
+    }
+
+    const newRoomResponse = await RoomService.getRoomById(newRoomId);
+    if (!newRoomResponse) {
+      throw new BadRequest("Invalid new room ID");
+    }
+    const newRoom = newRoomResponse.data;
+
+    if (newRoom.currentOccupancy >= newRoom.maxOccupancy) {
+      throw new BadRequest("No more beds available in the new room");
+    }
+
+    // Update room occupancy
+    const oldRoomResponse = await RoomService.getRoomById(tenant.roomId);
+    if (oldRoomResponse) {
+      const oldRoom = oldRoomResponse.data;
+      oldRoom.currentOccupancy -= 1;
+      await Room.updateOne(
+        { _id: oldRoom._id },
+        { $pull: { tenants: tenantId }, $inc: { currentOccupancy: -1 } }
+      );
+    }
+
+    await Room.updateOne(
+      { _id: newRoom._id },
+      { $push: { tenants: tenantId }, $inc: { currentOccupancy: 1 } }
+    );
+
+    // Update tenant's room
+    tenant.roomId = newRoomId;
+    await tenant.save();
+
+    res.status(200).json({ message: "Room changed successfully" });
+  } catch (error) {
+    next(error);
   }
 };

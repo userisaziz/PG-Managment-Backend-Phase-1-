@@ -47,17 +47,23 @@ exports.updateRoom = async (id, data) => {
   } catch (error) {
     throw error;
   }
-};
+}
 
 exports.deleteRoom = async (id) => {
   try {
-    const result = await Room.findByIdAndDelete(id);
-    if (!result) {
+    const room = await Room.findById(id);
+    if (!room) {
       throw new NotFound("Room not found");
     }
+
+    // Delete associated tenants
+    await Tenant.deleteMany({ _id: { $in: room.tenants } });
+
+    // Delete the room
+    const result = await Room.findByIdAndDelete(id);
     return {
       status: 200,
-      message: "Room deleted successfully",
+      message: "Room and associated tenants deleted successfully",
       data: result,
     };
   } catch (error) {
@@ -74,7 +80,6 @@ exports.getAllRoomsWithDetails = async (
   try {
     const match = {};
 
-    // Build the match object based on the provided parameters
     if (hostelId) {
       match.hostelId = new mongoose.Types.ObjectId(hostelId);
     }
@@ -85,7 +90,6 @@ exports.getAllRoomsWithDetails = async (
       match.roomNo = roomNumber;
     }
 
-    // Construct the occupancy filter based on the occupancy status
     const occupancyFilter = {};
     switch (occupancyStatus) {
       case "Empty":
@@ -104,7 +108,6 @@ exports.getAllRoomsWithDetails = async (
         break;
     }
 
-    // Aggregate rooms with detailed information
     const rooms = await Room.aggregate([
       {
         $lookup: {
@@ -170,12 +173,10 @@ exports.getAllRoomsWithDetails = async (
         $project: {
           hostel: 0,
           floor: 0,
-          tenants: 0,
         },
       },
     ]);
 
-    // Check if no rooms were found
     if (!rooms || rooms.length === 0) {
       return {
         status: 200,
@@ -184,15 +185,26 @@ exports.getAllRoomsWithDetails = async (
       };
     }
 
-    // Return the fetched rooms
     return {
       status: 200,
       message: "Rooms fetched successfully",
       data: rooms,
     };
   } catch (error) {
-    // Log and throw the error for higher-level handling
     console.error("Error while fetching rooms:", error);
     throw new Error("Error while fetching rooms: " + error.message);
+  }
+};
+exports.updateRoomOccupancy = async (roomId, increment) => {
+  try {
+    const room = await Room.findById(roomId);
+    if (!room) {
+      throw new NotFound("Room not found");
+    }
+    room.currentOccupancy += increment;
+    await room.save();
+    return room;
+  } catch (error) {
+    throw error;
   }
 };

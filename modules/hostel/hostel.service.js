@@ -74,8 +74,7 @@ exports.getAllHostelWithDetails = async () => {
           totalBeds: 1,
           totalFloors: 1,
           "rooms._id": 1,
-          "rooms.name": 1,
-
+          "rooms.roomNo": 1,
           "floors._id": 1,
           "floors.floorNumber": 1,
           "floors.rooms": 1,

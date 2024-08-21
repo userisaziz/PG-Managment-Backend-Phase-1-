@@ -8,6 +8,10 @@ const categorySchema = new mongoose.Schema({
 const ExpenseSchema = new mongoose.Schema(
   {
     category: categorySchema,
+    // admin: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: "Admin",
+    // },
     Hostel: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Hostel",
@@ -16,8 +20,17 @@ const ExpenseSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Room",
     },
-    date: "String",
-    Amount: "Number",
+    date: String,
+    Amount: Number,
+    isRecurring: {
+      type: Boolean,
+      default: false,
+    },
+    recurrenceInterval: {
+      type: String,
+      enum: ["daily", "weekly", "monthly", "yearly"],
+      default: null,
+    },
   },
   { timestamps: true }
 );

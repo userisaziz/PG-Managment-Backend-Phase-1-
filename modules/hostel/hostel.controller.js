@@ -185,51 +185,8 @@ exports.getAnalytics = async (req, res) => {
             sum + (latestRent ? tenant.rentHistory.slice(-1)[0].amountPaid : 0)
           );
         }, 0);
-        const dailyIncome = hostel.tenants.reduce((sum, tenant) => {
-          const latestRent =
-            tenant.rentHistory.slice(-1)[0] &&
-            tenant.rentHistory.slice(-1)[0].rentType === "daily";
-          return (
-            sum + (latestRent ? tenant.rentHistory.slice(-1)[0].amountPaid : 0)
-          );
-        }, 0);
-        let netIncome = monthlyIncome + dailyIncome;
-
-        if (req.query.period) {
-          const period = req.query.period.toLowerCase();
-          const startDate = new Date();
-          const endDate = new Date();
-
-          switch (period) {
-            case "weekly":
-              startDate.setDate(startDate.getDate() - 7);
-              break;
-            case "monthly":
-              startDate.setMonth(startDate.getMonth() - 1);
-              break;
-            case "yearly":
-              startDate.setFullYear(startDate.getFullYear() - 1);
-              break;
-            default:
-              break;
-          }
-
-          const filteredTenants = hostel.tenants.filter((tenant) => {
-            const latestRent = tenant.rentHistory.slice(-1)[0];
-            return (
-              latestRent &&
-              latestRent.date >= startDate &&
-              latestRent.date <= endDate
-            );
-          });
-
-          const periodIncome = filteredTenants.reduce((sum, tenant) => {
-            const latestRent = tenant.rentHistory.slice(-1)[0];
-            return sum + (latestRent ? latestRent.amountPaid : 0);
-          }, 0);
-
-          netIncome = periodIncome;
-        }
+        const dailyIncome = hostel.dailyIncome; // Use the dailyIncome field
+        const netIncome = hostel.netIncome; // Use the netIncome field
 
         acc.totalRooms += rooms.length;
         acc.occupiedRooms += occupiedRooms.length;
@@ -241,6 +198,7 @@ exports.getAnalytics = async (req, res) => {
         acc.monthlyIncome += monthlyIncome;
         acc.dailyIncome += dailyIncome;
         acc.netIncome += netIncome;
+        acc.expenses += hostel.expenses; // Add expenses to the accumulator
         acc.revenueByHostel.push({
           hostelName: hostel.name,
           netIncome,
@@ -259,62 +217,130 @@ exports.getAnalytics = async (req, res) => {
         monthlyIncome: 0,
         dailyIncome: 0,
         netIncome: 0,
+        expenses: 0, // Initialize expenses in the accumulator
         revenueByHostel: [],
       }
     );
 
-    if (req.query.hostelName) {
-      const hostel = hostels.find(
-        (hostel) => hostel.name === req.query.hostelName
-      );
-      if (hostel) {
-        const hostelAnalytics = await hostelAnalytics(hostel);
-        res.json(hostelAnalytics);
-      } else {
-        res.status(404).json({ error: "Hostel not found" });
-      }
-    } else {
-      res.json(analytics);
-    }
+    res.status(200).json(analytics);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal server error" });
   }
 };
 
-const hostelAnalytics = async (hostel) => {
-  const rooms = hostel.rooms;
-  const occupiedRooms = rooms.filter((room) => room.currentOccupancy > 0);
-  const totalBeds = rooms.reduce((sum, room) => sum + room.maxOccupancy, 0);
-  const occupiedBeds = rooms.reduce(
-    (sum, room) => sum + room.currentOccupancy,
-    0
-  );
-  const monthlyIncome = hostel.tenants.reduce((sum, tenant) => {
-    const latestRent =
-      tenant.rentHistory.slice(-1)[0] &&
-      tenant.rentHistory.slice(-1)[0].rentType === "monthly";
-    return sum + (latestRent ? tenant.rentHistory.slice(-1)[0].amountPaid : 0);
-  }, 0);
-  const dailyIncome = hostel.tenants.reduce((sum, tenant) => {
-    const latestRent =
-      tenant.rentHistory.slice(-1)[0] &&
-      tenant.rentHistory.slice(-1)[0].rentType === "daily";
-    return sum + (latestRent ? tenant.rentHistory.slice(-1)[0].amountPaid : 0);
-  }, 0);
-  const netIncome = monthlyIncome + dailyIncome;
 
-  return {
-    hostelName: hostel.name,
-    totalRooms: rooms.length,
-    occupiedRooms: occupiedRooms.length,
-    vacantRooms: rooms.length - occupiedRooms.length,
-    totalBeds,
-    occupiedBeds,
-    vacantBeds: totalBeds - occupiedBeds,
-    totalTenants: hostel.tenants.length,
-    monthlyIncome,
-    dailyIncome,
-    netIncome,
-  };
+
+exports.addExpenseToHostel = async (req, res, next) => {
+  try {
+    const { hostelId, amount } = req.body;
+    const hostel = await Hostel.findById(hostelId);
+    if (!hostel) {
+      return res.status(404).json({ error: "Hostel not found" });
+    }
+    hostel.expenses += amount;
+    await hostel.save();
+    res.status(200).json({ message: "Expense added successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateHostelExpense = async (req, res, next) => {
+  try {
+    const { hostelId, amount } = req.body;
+    const hostel = await Hostel.findById(hostelId);
+    if (!hostel) {
+      return res.status(404).json({ error: "Hostel not found" });
+    }
+    hostel.expenses = amount;
+    await hostel.save();
+    res.status(200).json({ message: "Expense updated successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteHostelExpense = async (req, res, next) => {
+  try {
+    const { hostelId, amount } = req.body;
+    const hostel = await Hostel.findById(hostelId);
+    if (!hostel) {
+      return res.status(404).json({ error: "Hostel not found" });
+    }
+    hostel.expenses -= amount;
+    await hostel.save();
+    res.status(200).json({ message: "Expense deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+exports.getOverallAnalytics = async (req, res) => {
+  try {
+    const hostels = await Hostel.find().populate("floors rooms tenants");
+
+    const analytics = hostels.reduce(
+      (acc, hostel) => {
+        const rooms = hostel.rooms;
+        const occupiedRooms = rooms.filter((room) => room.currentOccupancy > 0);
+        const totalBeds = rooms.reduce(
+          (sum, room) => sum + room.maxOccupancy,
+          0
+        );
+        const occupiedBeds = rooms.reduce(
+          (sum, room) => sum + room.currentOccupancy,
+          0
+        );
+        const monthlyIncome = hostel.tenants.reduce((sum, tenant) => {
+          const latestRent =
+            tenant.rentHistory.slice(-1)[0] &&
+            tenant.rentHistory.slice(-1)[0].rentType === "monthly";
+          return (
+            sum + (latestRent ? tenant.rentHistory.slice(-1)[0].amountPaid : 0)
+          );
+        }, 0);
+        const dailyIncome = hostel.dailyIncome; // Use the dailyIncome field
+        const hostelTotalIncome = monthlyIncome + dailyIncome; // Calculate total income for each hostel
+        const netIncome = hostelTotalIncome - hostel.expenses; // Correct net income calculation for each hostel
+
+        acc.totalRooms += rooms.length;
+        acc.occupiedRooms += occupiedRooms.length;
+        acc.vacantRooms += rooms.length - occupiedRooms.length;
+        acc.totalBeds += totalBeds;
+        acc.occupiedBeds += occupiedBeds;
+        acc.vacantBeds += totalBeds - occupiedBeds;
+        acc.totalTenants += hostel.tenants.length;
+        acc.monthlyIncome += monthlyIncome;
+        acc.dailyIncome += dailyIncome;
+        acc.netIncome += netIncome;
+        acc.expenses += hostel.expenses; // Add expenses to the accumulator
+        acc.revenueByHostel.push({
+          hostelName: hostel.name,
+          netIncome,
+          totalIncome: hostelTotalIncome // Reflect total income for each hostel individually
+        });
+
+        return acc;
+      },
+      {
+        totalRooms: 0,
+        occupiedRooms: 0,
+        vacantRooms: 0,
+        totalBeds: 0,
+        occupiedBeds: 0,
+        vacantBeds: 0,
+        totalTenants: 0,
+        monthlyIncome: 0,
+        dailyIncome: 0,
+        netIncome: 0,
+        expenses: 0, // Initialize expenses in the accumulator
+        revenueByHostel: [], // Initialize revenueByHostel to collect income by hostel
+      }
+    );
+
+    res.status(200).json(analytics);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };

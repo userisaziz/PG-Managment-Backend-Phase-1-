@@ -5,9 +5,12 @@ const paymentController = require("./payments.controller");
 const { validatePayment } = require("./payments.validator");
 
 // Payment Routes
-router.post("/payments", validatePayment, paymentController.createPayment);
-router.get("/payments", paymentController.getPayments);
+router.post("/", validatePayment, paymentController.createPayment);
+router.get("/", paymentController.getPayments);
 
-// Expense Routes
+// New Routes
+router.post("/record", paymentController.recordPayment);
+router.get("/tenant/:tenantId", paymentController.getPaymentsByTenant);
+router.get("/month/:month", paymentController.getPaymentsByMonth);
 
 module.exports = router;
